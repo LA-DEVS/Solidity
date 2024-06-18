@@ -24,6 +24,7 @@ event Staked(address indexed user, uint256 amount);
 event Unstaked(address indexed user, uint256 amount);
 event RewardPaid(address indexed user, uint256 reward);
 event EmergencyWithdraw(address indexed user, uint256 amount);
+event Restaked(address indexed user , uint256 amount);
 
 //modifier
 modifier onlyOwner() {
@@ -57,28 +58,44 @@ function stake(uint256 amount) external whenNotPaused {
 
         emit Staked(msg.sender, amount);   // Hier wird ein log gespeichert
 }
+
+
 function unstake(uint256 amount)external whenNotPaused{
     require( amount > 0  && amount <= stakedAmounts[msg.sender], "Amount must be greater than 0 and smaller then the staked Amount"); //mindest-Amount
     _updateReward(msg.sender);
-    stakedAmounts[msg.sender] -= amount;  // Mappen des neu-gestaketen Amounts auf den Key-Value (Empfangsadresse)
-    totalStaked -= amount; // Insgesamt gestaketen coins von allen Usern
-    token._transfer(address(this), msg.sender, amount); //Transfer-Befehl
+    stakedAmounts[msg.sender] -= amount;
+    totalStaked -= amount;
+    token._transfer(address(this), msg.sender, amount);
     emit Unstaked(msg.sender, amount);
 }
 
 
-function restake(){}
+function restake(uint256 amount)external whenNotPaused{
+    require ( amount > 0 /*&& isStaker[msg.sender] = true*/, "Amount must be greater than 0" );
+    token._transfer(msg.sender, address(this), amount);
+    _updateReward(msg.sender);
+    stakedAmounts[msg.sender] += amount;
+    totalStaked += amount;
+    emit Restaked(msg.sender, amount);
+
+}
 function calcReward(){}
 function distributeReward(){}
-function setRewardRate(){}
+function setRewardRate(uint256 Rate){
+    rewardRate = Rate;
+}
 function SetStakingPeriod(){}
-function pause(){}
-function unpause(){}
+function pause(bool paused){
+    paused = true;
+}
+function unpause(bool paused){
+    paused = false;
+}
 function stakedAmount(){}
 function totalStaked(){}
 function rewardBalance(){}
-function EmWithdraw(){}
+function EmergencyWithdraw(){}
 function AddtoWhitelist(){}
-function RemfromWhielist(){}
+function RemovefromWhielist(){}
 function _updateReward(){}
 }
