@@ -17,7 +17,7 @@ mapping(address => uint256) public stakedAmounts;
 mapping(address => uint256) public rewardBalances;
 mapping(address => uint256) public lastStakedTime;
 mapping(address => bool) public whitelist;
-//mapping(address => bool) public isStaker;
+mapping(address => bool) public isStaker;
 
 //verschiedene Events
 event Staked(address indexed user, uint256 amount);
@@ -31,7 +31,6 @@ modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
         _;
 }
-
 modifier whenNotPaused() {
         require(!paused, "Staking is paused");
         _;
@@ -49,17 +48,14 @@ function stake(uint256 amount) external whenNotPaused {
         stakedAmounts[msg.sender] += amount;  // Mappen des neu-gestaketen Amounts auf den Key-Value (Empfangsadresse)
         totalStaked += amount; // Insgesamt gestaketen coins von allen Usern
         lastStakedTime[msg.sender] = block.timestamp; //Mappen der Zeit des Stakes auf den Empfänger-Key
-        Staker.push(msg.sender);  //Adresse wird zu adressen der Staker hinzugefügt
+        //Staker.push(msg.sender);  //Adresse wird zu adressen der Staker hinzugefügt
 
-             //Alternative weniger gas fees
-             //if (!isStaker[msg.sender]) {  // Überprüfen ob der Benutzer bereits ein Staker ist
-             //isStaker[msg.sender] = true;
-             //   }
-
+        //Alternative weniger gas fees
+        if (!isStaker[msg.sender]) {  // Überprüfen ob der Benutzer bereits ein Staker ist
+        isStaker[msg.sender] = true;
+        }
         emit Staked(msg.sender, amount);   // Hier wird ein log gespeichert
 }
-
-
 function unstake(uint256 amount)external whenNotPaused{
     require( amount > 0  && amount <= stakedAmounts[msg.sender], "Amount must be greater than 0 and smaller then the staked Amount"); //mindest-Amount
     _updateReward(msg.sender);
@@ -68,8 +64,6 @@ function unstake(uint256 amount)external whenNotPaused{
     token._transfer(address(this), msg.sender, amount);
     emit Unstaked(msg.sender, amount);
 }
-
-
 function restake(uint256 amount)external whenNotPaused{
     require ( amount > 0 /*&& isStaker[msg.sender] = true*/, "Amount must be greater than 0" );
     token._transfer(msg.sender, address(this), amount);
@@ -79,23 +73,49 @@ function restake(uint256 amount)external whenNotPaused{
     emit Restaked(msg.sender, amount);
 
 }
-function calcReward(){}
-function distributeReward(){}
+function calcReward(address user)public view returns(uint256){
+    uint256 stakedTime = block.timestamp - lastStakedTime(user) ;
+    uint256 stakedAmount = stakedAmounts(user);
+    return stakedAmount * stakedTime * rewardRate / 1e18;
+}
+function distributeReward(address user) external onlyOwner{
+    if (isStaker[user]){
+        _updateReward(user);
+    }
+}
 function setRewardRate(uint256 Rate){
     rewardRate = Rate;
 }
-function SetStakingPeriod(){}
+function SetStakingPeriod(uint256 period) externayl onlyOwner{
+    stakingPeriod = period;
+}
 function pause(bool paused){
     paused = true;
 }
 function unpause(bool paused){
     paused = false;
 }
-function stakedAmount(){}
-function totalStaked(){}
-function rewardBalance(){}
-function EmergencyWithdraw(){}
-function AddtoWhitelist(){}
-function RemovefromWhielist(){}
-function _updateReward(){}
+function stakedAmount(address user) external view returns(){
+    return stakedAmounts[user];
+}
+function totalStaked()external view returns(uint256){
+    return totalStaked;
+}
+function rewardBalance(address user)external view returns (uint256){
+    return rewardBalances[user];
+}
+function EmergencyWithdraw(){
+    uint256 amount = stakedAmounts[msg.sender];
+    require(amount > 0, "No staked amount");
+    stakedAmounts[msg.sender] = 0;
+    totalStaked -= amount;
+    token.transfer(msg.sender, amount);
+    emit EmergencyWithdraw(msg.sender, amount);}
+//function AddtoWhitelist(){}
+//function RemovefromWhielist(){}
+function _updateReward(address user) internal{
+    uint256 reward = calcReward(user);
+    rewardBalances[user] += reward;
+    lastStakedTime[user] = block.timestamp;
+}
 }
